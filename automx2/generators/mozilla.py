@@ -32,41 +32,50 @@ from automx2.model import Provider
 from automx2.model import Server
 
 SERVER_TYPE_MAP = {
-    'imap': ['incoming', 'imap'],
-    'pop': ['incoming', 'pop3'],
-    'smtp': ['outgoing', 'smtp'],
+    "imap": ["incoming", "imap"],
+    "pop": ["incoming", "pop3"],
+    "smtp": ["outgoing", "smtp"],
 }
 
 
 class MozillaGenerator(ConfigGenerator):
-    def server_element(self, parent: Element, server: Server, override_uid: str = None) -> None:
+    def server_element(
+        self, parent: Element, server: Server, override_uid: str = None
+    ) -> None:
         direction = SERVER_TYPE_MAP[server.type][0]
         type_attrib = SERVER_TYPE_MAP[server.type][1]
-        element = SubElement(parent, f'{direction}Server', attrib={'type': type_attrib})
-        SubElement(element, 'hostname').text = server.name
-        SubElement(element, 'port').text = str(server.port)
-        SubElement(element, 'socketType').text = server.socket_type
-        SubElement(element, 'username').text = self.pick_one(server.user_name, override_uid)
-        SubElement(element, 'authentication').text = server.authentication
+        element = SubElement(parent, f"{direction}Server", attrib={"type": type_attrib})
+        SubElement(element, "hostname").text = server.name
+        SubElement(element, "port").text = str(server.port)
+        SubElement(element, "socketType").text = server.socket_type
+        SubElement(element, "username").text = self.pick_one(
+            server.user_name, override_uid
+        )
+        SubElement(element, "authentication").text = server.authentication
 
     def client_config(self, local_part, domain_part: str, display_name: str) -> str:
-        root_element = Element('clientConfig', attrib={'version': '1.1'})
-        domain: Domain = Domain.query.filter_by(name=domain_part).first()
+        root_element = Element("clientConfig", attrib={"version": "1.1"})
+        domain: Domain = Domain.query.first()
         if not domain:
-            raise DomainNotFound(f'Domain "{domain_part}" not found')
+            raise DomainNotFound(f'Domain "{domain.name}" not found')
         if domain.ldapserver:
-            lookup_result: LookupResult = self.ldap_lookup(f'{local_part}@{domain_part}', domain.ldapserver)
+            lookup_result: LookupResult = self.ldap_lookup(
+                f"{local_part}@{domain.name}", domain.ldapserver
+            )
         else:
             lookup_result = LookupResult(STATUS_SUCCESS, display_name, None)
         provider: Provider = domain.provider
-        if not provider:  # pragma: no cover (db constraints prevent this during testing)
-            raise NoProviderForDomain(f'No provider for domain "{domain_part}"')
-        provider_element = SubElement(root_element, 'emailProvider', attrib={'id': branded_id(provider.id)})
-        SubElement(provider_element, 'identity')  # Deliberately left empty
+        if (
+            not provider
+        ):  # pragma: no cover (db constraints prevent this during testing)
+            raise NoProviderForDomain(f'No provider for domain "{domain.name}"')
+        provider_element = SubElement(
+            root_element, "emailProvider", attrib={"id": domain.name}
+        )
         for provider_domain in provider.domains:
-            SubElement(provider_element, 'domain').text = provider_domain.name
-        SubElement(provider_element, 'displayName').text = provider.name
-        SubElement(provider_element, 'displayShortName').text = provider.short_name
+            SubElement(provider_element, "domain").text = provider_domain.name
+        SubElement(provider_element, "displayName").text = provider.name
+        SubElement(provider_element, "displayShortName").text = provider.short_name
         for server in self.servers_by_prio(domain.servers):
             if server.type not in SERVER_TYPE_MAP:
                 raise InvalidServerType(f'Invalid server type "{server.type}"')

@@ -38,92 +38,94 @@ from automx2.util import strip_none_values
 from automx2.util import unique
 
 AUTH_MAP = {
-    'none': 'EmailAuthNone',
-    'NTLM': 'EmailAuthNTLM',
-    'plain': 'EmailAuthPassword',
+    "none": "EmailAuthNone",
+    "NTLM": "EmailAuthNTLM",
+    "plain": "EmailAuthPassword",
 }
 SERVER_TYPE_MAP = {
-    'imap': ['Incoming', 'EmailTypeIMAP'],
-    'pop': ['Incoming', 'EmailTypePOP'],
-    'smtp': ['Outgoing', None],
+    "imap": ["Incoming", "EmailTypeIMAP"],
+    "pop": ["Incoming", "EmailTypePOP"],
+    "smtp": ["Outgoing", None],
 }
 
 
 def _bool_element(parent: Element, key: str, value: bool):
-    SubElement(parent, 'key').text = key
+    SubElement(parent, "key").text = key
     if value:
-        v = 'true'
+        v = "true"
     else:
-        v = 'false'
+        v = "false"
     SubElement(parent, v)
 
 
 def _int_element(parent: Element, key: str, value: int):
-    SubElement(parent, 'key').text = key
-    SubElement(parent, 'integer').text = str(value)
+    SubElement(parent, "key").text = key
+    SubElement(parent, "integer").text = str(value)
 
 
 def _str_element(parent: Element, key: str, value: str):
-    SubElement(parent, 'key').text = key
-    SubElement(parent, 'string').text = value
+    SubElement(parent, "key").text = key
+    SubElement(parent, "string").text = value
 
 
 def _subtree(parent: Element, key: str, value):
     if isinstance(value, bool):
         _bool_element(parent, key, value)
     elif isinstance(value, dict):
-        p = SubElement(parent, 'dict')
+        p = SubElement(parent, "dict")
         for k, v in value.items():
             _subtree(p, k, v)
     elif isinstance(value, int):
         _int_element(parent, key, value)
     elif isinstance(value, list):
-        SubElement(parent, 'key').text = key
-        p = SubElement(parent, 'array')
+        SubElement(parent, "key").text = key
+        p = SubElement(parent, "array")
         for v in value:
-            _subtree(p, 'dunno', v)
+            _subtree(p, "dunno", v)
     else:
         _str_element(parent, key, value)
 
 
-def _account_payload(local: str, domain: str, account_type: str, account_name: str) -> dict:
-    address = f'{local}@{domain}'
+def _account_payload(
+    local: str, domain: str, account_type: str, account_name: str
+) -> dict:
+    address = f"{local}@{domain}"
     uuid = unique()
     return {
-        'EmailAccountDescription': address,
-        'EmailAccountName': account_name,
-        'EmailAccountType': account_type,
-        'EmailAddress': address,
-        'IncomingMailServerAuthentication': 'EmailAuthPassword',
-        'IncomingMailServerHostName': None,
-        'IncomingMailServerPortNumber': -1,
-        'IncomingMailServerUseSSL': None,
-        'IncomingMailServerUsername': None,
-        'OutgoingMailServerAuthentication': 'EmailAuthPassword',
-        'OutgoingMailServerHostName': None,
-        'OutgoingMailServerPortNumber': -1,
-        'OutgoingMailServerUseSSL': None,
-        'OutgoingMailServerUsername': None,
-        'OutgoingPasswordSameAsIncomingPassword': True,
-        'PayloadDescription': f'Email account {address}',
-        'PayloadDisplayName': domain,
-        'PayloadIdentifier': f'com.apple.mail.managed.{uuid}',
-        'PayloadType': 'com.apple.mail.managed',
-        'PayloadUUID': uuid,
-        'PayloadVersion': 1,
+        "EmailAccountDescription": address,
+        "EmailAccountName": account_name,
+        "EmailAccountType": account_type,
+        "EmailAddress": address,
+        "IncomingMailServerAuthentication": "EmailAuthPassword",
+        "IncomingMailServerHostName": None,
+        "IncomingMailServerPortNumber": -1,
+        "IncomingMailServerUseSSL": None,
+        "IncomingMailServerUsername": None,
+        "OutgoingMailServerAuthentication": "EmailAuthPassword",
+        "OutgoingMailServerHostName": None,
+        "OutgoingMailServerPortNumber": -1,
+        "OutgoingMailServerUseSSL": None,
+        "OutgoingMailServerUsername": None,
+        "OutgoingPasswordSameAsIncomingPassword": True,
+        "PayloadDescription": f"Email account {address}",
+        "PayloadDisplayName": domain,
+        "PayloadIdentifier": f"com.apple.mail.managed.{uuid}",
+        "PayloadType": "com.apple.mail.managed",
+        "PayloadUUID": uuid,
+        "PayloadVersion": 1,
     }
 
 
 def _config_payload(domain: str, content: dict) -> dict:
     uuid = unique()
     return {
-        'PayloadContent': [content],
-        'PayloadDisplayName': f'Email account {domain}',
-        'PayloadIdentifier': branded_id(uuid),
-        'PayloadRemovalDisallowed': False,
-        'PayloadType': 'Configuration',
-        'PayloadUUID': uuid,
-        'PayloadVersion': 1,
+        "PayloadContent": [content],
+        "PayloadDisplayName": f"Email account {domain}",
+        "PayloadIdentifier": branded_id(uuid),
+        "PayloadRemovalDisallowed": False,
+        "PayloadType": "Configuration",
+        "PayloadUUID": uuid,
+        "PayloadVersion": 1,
     }
 
 
@@ -142,7 +144,9 @@ def _sanitise(data, local: str, domain: str):
 def _map_authentication(server: Server) -> str:
     if server.authentication in AUTH_MAP:
         return AUTH_MAP[server.authentication]
-    raise InvalidAuthenticationType(f'Invalid authentication type "{server.authentication}"')
+    raise InvalidAuthenticationType(
+        f'Invalid authentication type "{server.authentication}"'
+    )
 
 
 def _preferred_server(servers: List[Server], type_: str) -> Server:
@@ -150,7 +154,7 @@ def _preferred_server(servers: List[Server], type_: str) -> Server:
     This code will find the preferred server of a given type, based on the DB records' priorities
     and on whether candidates support encryption or not.
     """
-    encrypted = ['SSL', 'STARTTLS']
+    encrypted = ["SSL", "STARTTLS"]
     # noinspection PyTypeChecker
     server: Server = None
     for s in servers:
@@ -165,39 +169,58 @@ def _preferred_server(servers: List[Server], type_: str) -> Server:
 
 
 class AppleGenerator(ConfigGenerator):
-    def client_config(self, local_part: str, domain_part: str, display_name: str) -> str:
-        root_element = Element('plist', attrib={'version': '1.0'})
-        domain: Domain = Domain.query.filter_by(name=domain_part).first()
+    def client_config(
+        self, local_part: str, domain_part: str, display_name: str
+    ) -> str:
+        root_element = Element("plist", attrib={"version": "1.0"})
+        domain: Domain = Domain.query.first()
         if not domain:
-            raise DomainNotFound(f'Domain "{domain_part}" not found')
+            raise DomainNotFound(f'Domain "{domain.name}" not found')
         provider: Provider = domain.provider
-        if not provider:  # pragma: no cover (db constraints prevent this during testing)
-            raise NoProviderForDomain(f'No provider for domain "{domain_part}"')
+        if (
+            not provider
+        ):  # pragma: no cover (db constraints prevent this during testing)
+            raise NoProviderForDomain(f'No provider for domain "{domain.name}"')
         if not domain.servers:
-            raise NoServersForDomain(f'No servers for domain "{domain_part}"')
+            raise NoServersForDomain(f'No servers for domain "{domain.name}"')
         if domain.ldapserver:
-            lookup_result: LookupResult = self.ldap_lookup(f'{local_part}@{domain_part}', domain.ldapserver)
+            lookup_result: LookupResult = self.ldap_lookup(
+                f"{local_part}@{domain.name}", domain.ldapserver
+            )
         else:
             lookup_result = LookupResult(STATUS_SUCCESS, display_name, None)
 
         servers = self.servers_by_prio(domain.servers)
-        mail_server = _preferred_server(servers, 'imap')
+        mail_server = _preferred_server(servers, "imap")
         if not mail_server:
-            mail_server = _preferred_server(servers, 'pop')
+            mail_server = _preferred_server(servers, "pop")
             if not mail_server:
-                raise NoServersForDomain(f'No IMAP/POP server for domain "{domain_part}"')
-        smtp_server = _preferred_server(servers, 'smtp')
+                raise NoServersForDomain(
+                    f'No IMAP/POP server for domain "{domain.name}"'
+                )
+        smtp_server = _preferred_server(servers, "smtp")
         if not smtp_server:  # pragma: no cover (not expected during testing)
-            raise NoServersForDomain(f'No SMTP server for domain "{domain_part}"')
-        account = _account_payload(local_part, domain_part, SERVER_TYPE_MAP[mail_server.type][1], lookup_result.cn)
+            raise NoServersForDomain(f'No SMTP server for domain "{domain.name}"')
+        account = _account_payload(
+            local_part,
+            domain.name,
+            SERVER_TYPE_MAP[mail_server.type][1],
+            lookup_result.cn,
+        )
         for server in [mail_server, smtp_server]:
             direction = SERVER_TYPE_MAP[server.type][0]
-            account[f'{direction}MailServerHostName'] = server.name
-            account[f'{direction}MailServerPortNumber'] = server.port
-            account[f'{direction}MailServerUsername'] = self.pick_one(server.user_name, lookup_result.uid)
-            account[f'{direction}MailServerAuthentication'] = _map_authentication(server)
-            account[f'{direction}MailServerUseSSL'] = socket_type_needs_ssl(server.socket_type)
-        config = _config_payload(domain_part, strip_none_values(account))
-        _sanitise(config, local_part, domain_part)
-        _subtree(root_element, '', config)
+            account[f"{direction}MailServerHostName"] = server.name
+            account[f"{direction}MailServerPortNumber"] = server.port
+            account[f"{direction}MailServerUsername"] = self.pick_one(
+                server.user_name, lookup_result.uid
+            )
+            account[f"{direction}MailServerAuthentication"] = _map_authentication(
+                server
+            )
+            account[f"{direction}MailServerUseSSL"] = socket_type_needs_ssl(
+                server.socket_type
+            )
+        config = _config_payload(domain.name, strip_none_values(account))
+        _sanitise(config, local_part, domain.name)
+        _subtree(root_element, "", config)
         return xml_to_string(root_element)

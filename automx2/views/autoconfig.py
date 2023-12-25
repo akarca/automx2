@@ -33,7 +33,7 @@ class MozillaView(MailConfig, MethodView):
 
     def get(self):
         """GET request is expected to contain ?emailaddress=user@example.com"""
-        address = request.args.get(EMAIL_MOZILLA, '')
+        address = request.args.get(EMAIL_MOZILLA, "")
         if not address:
             message = f'Missing request argument "{EMAIL_MOZILLA}"'
             log.error(message)
@@ -41,11 +41,13 @@ class MozillaView(MailConfig, MethodView):
         try:
             return self.config_from_address(address)
         except NotFoundException:
-            return '', 204
+            return "", 204
         except AutomxException as e:
             log.exception(e)
             abort(400)
 
-    def config_response(self, local_part, domain_part: str, realname: str, password: str) -> str:
+    def config_response(
+        self, local_part, domain_part: str, realname: str, password: str
+    ) -> str:
         data = MozillaGenerator().client_config(local_part, domain_part, realname)
         return data
