@@ -51,7 +51,7 @@ class MozillaGenerator(ConfigGenerator):
         SubElement(element, "username").text = self.pick_one(
             server.user_name, override_uid
         )
-        SubElement(element, "authentication").text = server.authentication
+        SubElement(element, "authentication").text = "password-cleartext"
 
     def client_config(self, local_part, domain_part: str, display_name: str) -> str:
         root_element = Element("clientConfig", attrib={"version": "1.1"})
